@@ -1,0 +1,114 @@
+name: ci
+
+# The format is BIG-ENDIAN throughout — the buddy addresses, the B-tree, the
+# record lengths, the alias — so s390x is not box-ticking here: it is the only
+# lane where a forgotten byte-order conversion shows up. The tests are
+# EXECUTED on every architecture, under emulation where it is not native,
+# because a cross-build proves only that it compiles.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go vet ./...
+      - name: gofmt
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            echo "::error::these files are not gofmt-clean:"; echo "$unformatted"
+            exit 1
+          fi
+      - run: go test -count=1 ./...
+
+  race:
+    name: race detector
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -race -count=1 ./...
+
+  # THE FLEET STANDARD IS 100%, AND THIS REPOSITORY DOES NOT MEET IT.
+  #
+  # It sits at 96.6%, and the missing statements are named rather than waved
+  # at: the length guards in decodeRecord are unreachable through Parse (a
+  # block is a power of two, so a record ending at the last written byte still
+  # has padding behind it that reads back as a valid empty value), and one
+  # plist encoder error path that a map of strings and numbers cannot provoke.
+  # Three attempts to reach them are recorded in parse_test.go.
+  #
+  # The floor refuses a regression and prints the distance to the standard.
+  # THE FLOOR IS NOT THE STANDARD; the job name says so.
+  coverage-floor:
+    name: coverage floor (96.6%, standard is 100%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: |
+          FLOOR=96.6
+          go test -coverprofile=cover.out ./... >/dev/null
+          go tool cover -func=cover.out
+          cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')
+          echo "coverage: ${cov}%  floor: ${FLOOR}%  standard: 100%"
+          awk -v c="$cov" -v f="$FLOOR" 'BEGIN{exit !(c+0 < f+0)}' && {
+            echo "::error::coverage ${cov}% fell below the recorded floor ${FLOOR}%"; exit 1; }
+          awk -v c="$cov" 'BEGIN{if (c+0 < 100) printf "::warning::%.1f points short of the 100%% fleet standard\n", 100-c}'
+
+  arches:
+    name: arch ${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64, riscv64, loong64, ppc64le, s390x]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: GOARCH=${{ matrix.goarch }} go build ./...
+      - name: Install qemu-user-static
+        if: matrix.goarch != 'amd64' && matrix.goarch != 'arm64'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static
+      - name: Test
+        run: |
+          case "${{ matrix.goarch }}" in
+            amd64|arm64) go test -count=1 ./... ;;
+            riscv64)  GOARCH=riscv64 go test -count=1 -exec=qemu-riscv64-static ./... ;;
+            loong64)  GOARCH=loong64 go test -count=1 -exec=qemu-loongarch64-static ./... ;;
+            ppc64le)  GOARCH=ppc64le go test -count=1 -exec=qemu-ppc64le-static ./... ;;
+            s390x)    GOARCH=s390x   go test -count=1 -exec=qemu-s390x-static ./... ;;
+          esac

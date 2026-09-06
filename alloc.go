@@ -29,9 +29,15 @@ type allocator struct {
 	high uint32       // one past the end of the highest block handed out
 }
 
-func newAllocator() *allocator {
+func newAllocator() *allocator { return newAllocatorOfWidth(addrSpaceWidth) }
+
+// newAllocatorOfWidth exists so the exhaustion path is reachable from a test.
+// With the real 2 GiB address space a store would have to be larger than any
+// .DS_Store can be to run out, and a branch no test can enter is a branch
+// nobody has checked.
+func newAllocatorOfWidth(w int) *allocator {
 	a := &allocator{}
-	a.free[addrSpaceWidth] = []uint32{0}
+	a.free[w] = []uint32{0}
 	// Relative offsets 0..63 are the buddy header — the magic, the two copies
 	// of the bookkeeping offset, and the slack after them. Handing out offset
 	// 0 puts a block on top of "Bud1" (a file whose own magic read
@@ -49,7 +55,10 @@ func (a *allocator) alloc(n int) (offset uint32, width int) {
 		src++
 	}
 	if src >= len(a.free) {
-		panic("dsstore: address space exhausted") // 2 GiB; unreachable in practice
+		// 2 GiB of address space against a store capped at one 4 KiB node:
+		// unreachable in the real configuration, which is why the width is a
+		// parameter and a test drives a small allocator into it.
+		panic("dsstore: address space exhausted")
 	}
 	off := a.free[src][0]
 	a.free[src] = a.free[src][1:]

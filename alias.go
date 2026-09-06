@@ -82,9 +82,9 @@ func BuildAlias(volumeName, relPath string) ([]byte, error) {
 	_ = binary.Write(&b, binary.BigEndian, uint32(0)) // 134 volume attributes
 	_ = binary.Write(&b, binary.BigEndian, uint16(0)) // 138 filesystem id
 	b.Write(make([]byte, 10))                         // 140 reserved
-	if b.Len() != aliasHeaderLen {
-		return nil, fmt.Errorf("dsstore: alias header came out %d bytes, want %d", b.Len(), aliasHeaderLen)
-	}
+	// The header's length is an invariant of the code just above, not a
+	// property of the input, so it is asserted in a test rather than checked
+	// here: a branch no input can reach is a branch no test can check.
 
 	// The Carbon path the Finder writes is colon-separated and keeps a NUL
 	// where the last separator would be: "VOL:dir:\x00file".

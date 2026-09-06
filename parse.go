@@ -121,6 +121,13 @@ func readNode(b []byte, addrs []uint32, idx int, s *Store) error {
 	return nil
 }
 
+// decodeRecord reads one record from the start of b.
+//
+// Its length guards are unreachable through Parse: b is always the tail of a
+// whole block, a block is always a power of two, and so a record ending at
+// the last written byte still has padding behind it that reads back as a
+// valid empty value. They are kept for a caller that passes something else,
+// and they are the reason this file does not reach 100% coverage.
 func decodeRecord(b []byte) (Record, int, error) {
 	var r Record
 	if len(b) < 4 {
