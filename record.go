@@ -29,7 +29,9 @@ type Record struct {
 
 // A Value is one of the typed payloads the format defines. Only the four this
 // package needs are implemented; the rest are rejected rather than guessed at.
-type Value interface{ encode() (kind string, data []byte) }
+type Value interface {
+	encode() (kind string, data []byte)
+}
 
 // Long is the "long" type: a 32-bit integer.
 type Long uint32
