@@ -32,11 +32,11 @@ type allocator struct {
 func newAllocator() *allocator {
 	a := &allocator{}
 	a.free[addrSpaceWidth] = []uint32{0}
-	// Relative offset 0 is the buddy header itself — the magic, the two
-	// copies of the bookkeeping offset, and the slack. Handing it out puts a
-	// block on top of "Bud1": the first version of this did exactly that, and
-	// wrote a file whose own magic read 00 00 00 01.
-	a.alloc(1 << blockMin)
+	// Relative offsets 0..63 are the buddy header — the magic, the two copies
+	// of the bookkeeping offset, and the slack after them. Handing out offset
+	// 0 puts a block on top of "Bud1" (a file whose own magic read
+	// 00 00 00 01), and the Finder's own files never place a block below 64.
+	a.alloc(1 << (blockMin + 1))
 	return a
 }
 
