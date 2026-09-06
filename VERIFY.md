@@ -41,8 +41,19 @@ Proven, with the harness above and a positive control:
   values are ours and not a leftover;
 - icon size — 96, from the same file.
 
-**Not proven:** the background picture. `background picture of icon view
-options` raises an AppleScript error even for a window the Finder itself
-configured with one, so this harness cannot measure it. The alias inside the
-record matches the Finder's field by field (see `alias_test.go`), but that is
-agreement with a reference, not an observation of the picture appearing.
+The background picture, proven a different way. AppleScript is no use for it:
+`background picture of icon view options` raises an error even for a window
+the Finder itself configured with one. But the Finder leaves a trace when it
+resolves the alias — it writes its own bookmark, split across `pBBk` and
+`pBB0`. So read the file back after the Finder has opened the window:
+
+| alias points at | after the Finder opens it |
+|---|---|
+| a picture that exists | `backgroundType` stays 2, and **`pBBk` + `pBB0` appear** |
+| a picture that does not | `backgroundType` stays 2, and **no bookmark is added** |
+
+Same file otherwise, same volume, same harness — so the bookmark appearing
+means the Finder resolved this package's alias to a real file, which is what
+"the background was accepted" amounts to. A negative control matters here:
+without the missing-picture arm, `pBBk` appearing would prove only that the
+Finder writes bookmarks.
