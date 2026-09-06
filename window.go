@@ -15,8 +15,12 @@ import (
 // says how big the window is. A background picture with no bwsp is a picture
 // cropped to whatever size the Finder last used.
 type Window struct {
-	// X and Y are the window's top-left corner on screen; Width and Height
-	// are its content area, which is the area the background covers.
+	// X and Y are the window's BOTTOM-left corner, y measured up from the
+	// bottom of the screen -- a Cocoa rect, not the top-left corner it looks
+	// like. Asking for {{100, 100}, {600, 400}} on a screen whose desktop
+	// ends at 1117 put the window's bottom edge at 1017, which is where the
+	// Finder reported it. Width and Height are the content area, which is
+	// the area the background covers.
 	X, Y, Width, Height int
 }
 
