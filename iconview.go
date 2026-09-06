@@ -5,11 +5,8 @@
 package dsstore
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"howett.net/plist"
 )
 
 // IconView is the window's icon-view settings — the "icvp" record, which is
@@ -65,12 +62,11 @@ func (v IconView) icvp() ([]byte, error) {
 		d["backgroundType"] = 2
 		d["backgroundImageAlias"] = alias
 	}
-	var buf bytes.Buffer
-	enc := plist.NewBinaryEncoder(&buf)
-	if err := enc.Encode(d); err != nil {
+	b, err := encodeBinaryPlist(d)
+	if err != nil {
 		return nil, fmt.Errorf("dsstore: encoding icvp: %w", err)
 	}
-	return buf.Bytes(), nil
+	return b, nil
 }
 
 func orDefault(v, def float64) float64 {
